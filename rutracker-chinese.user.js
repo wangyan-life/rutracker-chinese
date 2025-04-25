@@ -4,6 +4,7 @@
 // @match        https://rutracker.net/*
 // @version      1.2
 // @description  Rutracker 汉化插件，Rutracker 中文化界面。(Rutracker Translation To Chinese)
+// @author       wangyan-life
 // @grant        none
 // @license      MIT
 // ==/UserScript==
