@@ -2,6 +2,7 @@
 // @name         Rutracker 中文化插件
 // @namespace    https://github.com/wangyan-life
 // @match        https://rutracker.net/*
+// @match        https://rutracker.org/*
 // @version      1.2
 // @description  Rutracker 汉化插件，Rutracker 中文化界面。(Rutracker Translation To Chinese)
 // @author       wangyan-life
