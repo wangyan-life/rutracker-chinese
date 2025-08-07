@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Rutracker 中文化插件
 // @namespace    https://github.com/wangyan-life
-// @match        https://rutracker.net/*
 // @match        https://rutracker.org/*
-// @version      1.3
+// @match        https://rutracker.org/*
+// @version      1.3.1
 // @description  Rutracker 汉化插件，Rutracker 中文化界面。(Rutracker Translation To Chinese)
 // @author       wangyan-life
 // @grant        none
@@ -12,7 +12,7 @@
 
 (function() {
     const i18n = new Map([
-        //----------主页(https://rutracker.net/forum/index.php)----------
+        //----------主页(https://rutracker.org/forum/index.php)----------
         ////----------左上----------
         ['Главная', '主页'],
         ['Трекер', '跟踪器'],
@@ -512,7 +512,7 @@
         ['Клипарты', '图形设计'],
         ['Мультимедиа и 3D контент', '多媒体和 3D 内容'],
         ['Мобильные тел. и КПК', '移动电话和掌上电脑'],
-        //----------消息(https://rutracker.net/forum/privmsg.php)----------
+        //----------消息(https://rutracker.org/forum/privmsg.php)----------
         ['Срок хранения 消息', '消息保存时长'],
         ['дней', '天'],
         ['Удалить отмеченное', '删除标记'],
@@ -536,7 +536,7 @@
         ['. В ', '仅当收件人阅读后，它们才会出现在'],
         [' они попадают только после того, как получатель их прочтет. Сообщения, находящиеся в папке ', '中。'],
         [', можно отредактировать или удалить.', '文件夹中的邮件可以编辑或删除。'],
-        //----------个人资料(https://rutracker.net/forum/profile.php)----------
+        //----------个人资料(https://rutracker.org/forum/profile.php)----------
         ['个人资料 пользователя', '用户资料'],
         ['Изменить профиль', '编辑个人资料'],
         ['Редактирование профиля', '编辑您的个人资料'],
@@ -625,7 +625,7 @@
         ['Информация', '信息'],
         ['Вернуться на главную', '返回主页'],
         ['Новые ответы в начатых темах не найдены', '在已发起的主题中未发现新回复'],
-        //----------搜索(https://rutracker.net/forum/search.php)----------
+        //----------搜索(https://rutracker.org/forum/search.php)----------
         ['Результатов 搜索а', '搜索结果'],
         ['搜索 по раздачам', '按发布搜索'],
         ['Перейти к разделу', '前往版区'],
