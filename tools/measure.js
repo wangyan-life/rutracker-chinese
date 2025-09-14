@@ -22,7 +22,24 @@ const argv = require('minimist')(process.argv.slice(2));
     process.exit(2);
   }
 
-  const browser = await puppeteer.launch({ headless: true });
+  // Puppeteer launch options tuned for CI (GitHub Actions) where sandboxing may be restricted.
+  const launchOptions = {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-breakpad'
+    ]
+  };
+
+  // Allow overriding the Chromium executable via environment variable if needed.
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  const browser = await puppeteer.launch(launchOptions);
   const results = [];
 
   for (let i = 0; i < runs; i++) {
