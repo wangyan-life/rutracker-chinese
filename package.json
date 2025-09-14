@@ -1,11 +1,14 @@
 {
   "name": "rutracker-chinese",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Rutracker 中文化 userscript - modularized source and build",
   "main": "dist/rutracker-chinese.user.js",
   "scripts": {
     "build": "node build.js",
-    "watch": "node build.js --watch"
+    "watch": "node build.js --watch",
+    "build:version": "node build.js --version",
+    "build:bump": "node build.js --bump patch",
+    "release": "node build.js --bump minor"
   },
   "devDependencies": {
     "esbuild": "^0.18.0"

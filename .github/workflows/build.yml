@@ -1,0 +1,62 @@
+name: Build Userscript
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # run for push and manual dispatch (not when release event triggers the release job)
+    if: github.event_name != 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build userscript
+        run: npm run build
+
+      - name: Upload userscript artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rutracker-chinese-userscript
+          path: dist/*.user.js
+
+  release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build userscript
+        run: npm run build
+
+      - name: Upload to GitHub Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/rutracker-chinese.user.js
+          asset_name: rutracker-chinese.user.js
+          asset_content_type: application/javascript
