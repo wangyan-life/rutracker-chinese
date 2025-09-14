@@ -1,3 +1,109 @@
+# rutracker-chinese
+
+RuTracker 中文化 userscript 的源码与构建说明。
+
+本仓库将 userscript 的源码模块化（`src/`），并提供一个小型构建脚本 `build.js`（基于 esbuild）来打包生成可安装的 `dist/rutracker-chinese.user.js`。
+
+## 快速开始（开发者）
+
+1. 克隆仓库并切换到项目目录：
+
+```pwsh
+git clone https://github.com/wangyan-life/rutracker-chinese.git
+cd rutracker-chinese
+```
+
+2. 安装依赖：
+
+```pwsh
+# 首次安装
+npm install
+# 或在 CI 环境使用更确定的安装
+npm ci
+```
+
+3. 本地构建（生成 userscript）：
+
+```pwsh
+npm run build
+# 生成文件：dist/rutracker-chinese.user.js
+```
+
+4. 开发时监听变动：
+
+```pwsh
+npm run watch
+```
+
+## 主要脚本说明（package.json）
+
+- `npm run build` —— 普通构建（使用 package.json 中的 version）。
+- `npm run watch` —— 开启 watch 模式（构建器会监听源码变化并重建）。
+- `npm run build:version -- <ver>` —— 以指定版本号构建（示例：`npm run build:version -- 2.0.1`）。
+- `npm run build:bump` —— 自动增加 patch 并构建（等同 `node build.js --bump patch`）。
+- `npm run release` —— 自动增加 minor 并构建（等同 `node build.js --bump minor`）。
+- `npm run build:stats` —— 构建并包含埋点（用于性能测量，等同 `node build.js --stats 1`）。
+- `npm run measure` —— 运行 `tools/measure.js`（Puppeteer 脚本）对指定页面执行自动测量。
+
+## 性能测量与埋点
+
+本项目提供可选的构建级埋点（通过 `--stats` 打开），以及一个 Puppeteer 驱动的测量脚本：
+
+1. 构建带埋点的 userscript：
+
+```pwsh
+npm run build:stats
+```
+
+2. 运行测量脚本（示例）：
+
+```pwsh
+node tools/measure.js --url https://rutracker.org --runs 3 --out measure-results.json
+```
+
+说明：测量脚本会在页面上注入本地生成的 `dist/rutracker-chinese.user.js`（如果存在）并读取 `window.__rutracker_i18n_stats`。
+
+## CI（GitHub Actions）
+
+已添加一个可触发的工作流 `.github/workflows/measure.yml`：
+
+- 触发器：手动（workflow_dispatch）、发布 release（published）、以及 push 到 `main`。
+- 步骤：checkout → 安装依赖 → `npm run build:stats` → 运行 `node tools/measure.js` → 上传 `measure-results.json` 作为 artifact。
+
+如果希望在 PR 合并后自动运行测量，请确保将分支合并到 `main`（或调整 workflow 触发规则）。
+
+## 常见问题与故障排除
+
+- 问：`npm ci` 时出现 `EPERM` 权限错误？
+	- 解决：以管理员身份运行 PowerShell，或将 npm 缓存更改为用户可写目录：
+
+```powershell
+mkdir -Force $env:USERPROFILE\.npm-cache
+npm config set cache "$env:USERPROFILE\.npm-cache" --global
+npm ci
+```
+
+- 问：测量脚本没有返回任何埋点数据？
+	- 确认是否使用 `npm run build:stats` 生成了带埋点的 userscript；测量脚本会尽量注入本地 `dist` 文件并读取 `window.__rutracker_i18n_stats`。
+
+## PR 与贡献
+
+- 分支策略：功能分支推送到远程并创建 PR（示例：`perf/instrumentation` → `main`）。
+- 我已在分支 `perf/instrumentation` 添加相关变更，并提供 `PR_DESCRIPTION.md`（仓库根）作为 PR body 的建议文本，内容包括变更清单与运行说明。
+
+创建 PR 的快速方式（本地）：
+
+```pwsh
+# 使用 gh（若已安装并登录）
+gh pr create --base main --head perf/instrumentation --title "perf: instrumentation + measurement CI" --body-file PR_DESCRIPTION.md
+```
+
+或者在 GitHub 网页上新建 PR，选择 base 为 `main`，compare 为 `perf/instrumentation`，并把 `PR_DESCRIPTION.md` 内容粘贴到描述。
+
+## 许可证
+
+MIT
+
 ````markdown
 # rutracker-chinese
 RuTracker 汉化插件，RuTracker 中文化界面。
