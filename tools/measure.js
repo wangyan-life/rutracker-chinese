@@ -41,8 +41,14 @@ const argv = require('minimist')(process.argv.slice(2));
     const localScript = path.resolve(__dirname, '..', 'dist', 'rutracker-chinese.user.js');
     if (fs.existsSync(localScript)) {
       const content = fs.readFileSync(localScript, 'utf8');
-      // Inject via evaluate so script runs in page context
-      await page.evaluate(content);
+      // Inject the userscript content into the page so instrumentation runs.
+      // Use addScriptTag with content for better compatibility across Puppeteer versions.
+      try {
+        await page.addScriptTag({ content });
+      } catch (e) {
+        // Fallback: evaluate the script string in the page context
+        await page.evaluate(content);
+      }
     }
 
     if (waitSelector) {
@@ -55,7 +61,8 @@ const argv = require('minimist')(process.argv.slice(2));
     let stats = await page.evaluate(() => (window.__rutracker_i18n_stats) ? window.__rutracker_i18n_stats : null);
     if (!stats) {
       // give the page a short time to run replacement and report
-      await page.waitForTimeout(500);
+      // Use a plain Promise-based sleep for compatibility with multiple Puppeteer versions
+      await new Promise((resolve) => setTimeout(resolve, 500));
       stats = await page.evaluate(() => (window.__rutracker_i18n_stats) ? window.__rutracker_i18n_stats : null);
     }
 
