@@ -102,4 +102,16 @@ const argv = require('minimist')(process.argv.slice(2));
   }
 
   console.log('Full results:\n', JSON.stringify(results, null, 2));
+
+  // Write results to file if requested (CLI: --out <path> or -o <path>)
+  try {
+    const fs = require('fs');
+    const outPath = argv.out || argv.o || 'measure-results.json';
+    fs.writeFileSync(outPath, JSON.stringify(results, null, 2), 'utf8');
+    console.log(`Wrote measurement results to ${outPath}`);
+  } catch (e) {
+    console.error('Failed to write measurement results to file:', e);
+    // set non-zero exit code so CI step fails and artifact upload is skipped intentionally
+    process.exitCode = 2;
+  }
 })();
