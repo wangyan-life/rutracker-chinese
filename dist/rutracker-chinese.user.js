@@ -1380,16 +1380,50 @@
 
     // 文本替换函数
     function replaceText(node, translations) {
+        // 为了避免短 key 先匹配导致的部分替换问题（例如先把 "раздачи" 替换成 "发布"，
+        // 导致原句 "Тип раздачи" 变为 "Тип 发布" 而无法继续匹配 "Тип раздачи"），
+        // 我们对 translations 的 key 做长度降序排序，优先匹配长短语（longest-first）。
+        // 同时对单词边界进行更严格的检测：如果 key 看起来像单词（包含字母/数字/下划线），
+        // 在构造正则时添加 Unicode-aware 的边界检查（使用 (?<!\p{L}) 和 (?!\p{L}) 风格），
+        // 以尽量减少对词中间的误替换。
+
         if (node.nodeType === Node.TEXT_NODE) {
             let text = node.nodeValue;
             let replaced = false;
 
-            translations.forEach((value, key) => {
-                if (text.includes(key)) {
-                    text = text.replace(new RegExp(escapeRegExp(key), 'g'), value);
+            // 将 translations 转为数组并按 key 长度降序排序
+            const entries = Array.from(translations.entries()).sort((a, b) => b[0].length - a[0].length);
+
+            for (const [key, value] of entries) {
+                if (!key) continue;
+
+                // 判断 key 是否为“词”样（字母/数字/下划线或包含空格的短语）
+                const isWordLike = /[\p{L}\p{N}_]+/u.test(key);
+
+                // 构造安全的正则：对 word-like 的 key 使用边界检测，其他直接全局替换
+                let pattern;
+                const escaped = escapeRegExp(key);
+                if (isWordLike) {
+                    try {
+                        // 现代浏览器支持 Unicode 属性类和 lookbehind，这里优先使用更精确的断言
+                        pattern = new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, 'gu');
+                    } catch (err) {
+                        // 回退策略：若 key 仅含 ASCII 字母/数字/空白，则使用 \b 边界；否则退回简单匹配
+                        if (/^[A-Za-z0-9_\s]+$/.test(key)) {
+                            pattern = new RegExp(`\\b${escaped}\\b`, 'g');
+                        } else {
+                            pattern = new RegExp(escaped, 'g');
+                        }
+                    }
+                } else {
+                    pattern = new RegExp(escaped, 'g');
+                }
+
+                if (pattern.test(text)) {
+                    text = text.replace(pattern, value);
                     replaced = true;
                 }
-            });
+            }
 
             if (replaced) {
                 node.nodeValue = text;
