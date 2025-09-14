@@ -1,0 +1,32 @@
+name: Measure i18n Performance
+
+on:
+  workflow_dispatch:
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build instrumented userscript
+        run: npm run build:stats
+
+      - name: Run measurement script
+        run: |
+          npm run measure -- --url https://rutracker.org --runs 3 --out measure-results.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-measure-results
+          path: measure-results.json

@@ -54,6 +54,8 @@ function getArgValue(name) {
 
 const versionArg = getArgValue('--version');
 const bumpArg = getArgValue('--bump');
+const statsArgRaw = getArgValue('--stats');
+const statsFlag = statsArgRaw !== null ? statsArgRaw : (args.includes('--stats') ? '1' : null);
 
 function bumpVersion(version, type) {
   const parts = version.split('.').map(n => parseInt(n, 10) || 0);
@@ -94,6 +96,11 @@ async function buildWithVersion(watch) {
     console.log('Watching for changes...');
     return;
   }
+
+  // Inject build-time define for instrumentation (dead-code elimination when disabled)
+  buildOptions.define = buildOptions.define || {};
+  // Use a short symbol to avoid referencing process.env at runtime
+  buildOptions.define['__I18N_STATS__'] = JSON.stringify(statsFlag ? statsFlag : '0');
 
   await esbuild.build(buildOptions);
 

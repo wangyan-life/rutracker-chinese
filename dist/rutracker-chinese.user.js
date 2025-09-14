@@ -753,50 +753,52 @@
   function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function replaceText(node, translations) {
+  function replaceText(node, translations, matcher) {
     if (!translations || typeof translations.forEach !== "function")
       return;
-    if (node.nodeType === Node.TEXT_NODE) {
-      let text = node.nodeValue;
-      let replaced = false;
+    if (!matcher) {
+      const entries = [];
       translations.forEach((value, key) => {
-        if (text.includes(key)) {
-          text = text.replace(new RegExp(escapeRegExp(key), "g"), value);
-          replaced = true;
-        }
+        if (typeof key === "string" && key.length > 0)
+          entries.push([key, value]);
       });
-      if (replaced) {
-        node.nodeValue = text;
+      entries.sort((a, b) => b[0].length - a[0].length);
+      const map = new Map(entries.map(([k, v]) => [k, v]));
+      if (entries.length === 0) {
+        matcher = null;
+      } else {
+        const alternation = entries.map(([k]) => escapeRegExp(k)).join("|");
+        const pattern = new RegExp(alternation, "g");
+        matcher = { pattern, map };
       }
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (!matcher)
+        return;
+      let text = node.nodeValue;
+      const newText = text.replace(matcher.pattern, (matched) => matcher.map.get(matched) || matched);
+      if (newText !== text)
+        node.nodeValue = newText;
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.tagName === "SCRIPT" || node.tagName === "STYLE") {
         return;
       }
       if (node instanceof HTMLInputElement) {
         if (node.placeholder) {
-          let placeholder = node.placeholder;
-          translations.forEach((value, key) => {
-            placeholder = placeholder.replace(new RegExp(escapeRegExp(key), "g"), value);
-          });
+          const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
           node.placeholder = placeholder;
         }
         if (node.value && (node.type === "button" || node.type === "submit" || node.type === "reset")) {
-          let currentValue = node.value;
-          translations.forEach((translated, original) => {
-            currentValue = currentValue.replace(new RegExp(escapeRegExp(original), "g"), translated);
-          });
+          const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
           node.value = currentValue;
         }
       }
       if (node.title) {
-        let title = node.title;
-        translations.forEach((value, key) => {
-          title = title.replace(new RegExp(escapeRegExp(key), "g"), value);
-        });
+        const title = node.title.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
         node.title = title;
       }
       node.childNodes.forEach((childNode) => {
-        replaceText(childNode, translations);
+        replaceText(childNode, translations, matcher);
       });
     }
   }

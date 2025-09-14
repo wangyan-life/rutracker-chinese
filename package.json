@@ -7,11 +7,15 @@
     "build": "node build.js",
     "watch": "node build.js --watch",
     "build:version": "node build.js --version",
-    "build:bump": "node build.js --bump patch",
-    "release": "node build.js --bump minor"
+  "build:bump": "node build.js --bump patch",
+  "release": "node build.js --bump minor",
+  "build:stats": "node build.js --stats 1",
+    "measure": "node tools/measure.js"
   },
   "devDependencies": {
-    "esbuild": "^0.18.0"
+    "esbuild": "^0.18.0",
+    "puppeteer": "^21.0.0",
+    "minimist": "^1.2.8"
   },
   "author": "wangyan-life",
   "license": "MIT"
