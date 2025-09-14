@@ -753,20 +753,39 @@
   function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function replaceText(node, translations) {
-    if (!translations || typeof translations.forEach !== "function")
-      return;
-    if (node.nodeType === Node.TEXT_NODE) {
-      let text = node.nodeValue;
-      let replaced = false;
+  function replaceText(node, translations, matcher) {
+    if (!translations || typeof translations.forEach !== "function") return;
+    const STATS_ENABLED = true;
+    let __i18nStats = null;
+    if (STATS_ENABLED && typeof window !== "undefined") {
+      __i18nStats = window.__rutracker_i18n_stats = window.__rutracker_i18n_stats || { runs: 0, last: null };
+    }
+    if (!matcher) {
+      const entries = [];
       translations.forEach((value, key) => {
-        if (text.includes(key)) {
-          text = text.replace(new RegExp(escapeRegExp(key), "g"), value);
-          replaced = true;
-        }
+        if (typeof key === "string" && key.length > 0) entries.push([key, value]);
       });
-      if (replaced) {
-        node.nodeValue = text;
+      entries.sort((a, b) => b[0].length - a[0].length);
+      const map = new Map(entries.map(([k, v]) => [k, v]));
+      if (entries.length === 0) {
+        matcher = null;
+      } else {
+        const alternation = entries.map(([k]) => escapeRegExp(k)).join("|");
+        const pattern = new RegExp(alternation, "g");
+        matcher = { pattern, map };
+      }
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (!matcher) return;
+      if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesScanned++;
+      let text = node.nodeValue;
+      const newText = text.replace(matcher.pattern, (matched) => {
+        if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.replacements++;
+        return matcher.map.get(matched) || matched;
+      });
+      if (newText !== text) {
+        node.nodeValue = newText;
+        if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesReplaced++;
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.tagName === "SCRIPT" || node.tagName === "STYLE") {
@@ -774,29 +793,20 @@
       }
       if (node instanceof HTMLInputElement) {
         if (node.placeholder) {
-          let placeholder = node.placeholder;
-          translations.forEach((value, key) => {
-            placeholder = placeholder.replace(new RegExp(escapeRegExp(key), "g"), value);
-          });
+          const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
           node.placeholder = placeholder;
         }
         if (node.value && (node.type === "button" || node.type === "submit" || node.type === "reset")) {
-          let currentValue = node.value;
-          translations.forEach((translated, original) => {
-            currentValue = currentValue.replace(new RegExp(escapeRegExp(original), "g"), translated);
-          });
+          const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
           node.value = currentValue;
         }
       }
       if (node.title) {
-        let title = node.title;
-        translations.forEach((value, key) => {
-          title = title.replace(new RegExp(escapeRegExp(key), "g"), value);
-        });
+        const title = node.title.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
         node.title = title;
       }
       node.childNodes.forEach((childNode) => {
-        replaceText(childNode, translations);
+        replaceText(childNode, translations, matcher);
       });
     }
   }
@@ -887,8 +897,7 @@
       }
       const custom = getCustomTranslations();
       if (editingKey) {
-        if (editingKey !== original)
-          custom.delete(editingKey);
+        if (editingKey !== original) custom.delete(editingKey);
         custom.set(original, translated);
         if (saveCustomTranslations(custom)) {
           options.refreshTranslations();
@@ -974,8 +983,7 @@
       let removedCount = 0;
       if (mode === "replace") {
         current.forEach((v, k) => {
-          if (!parsedMap.has(k))
-            removedCount++;
+          if (!parsedMap.has(k)) removedCount++;
         });
       }
       const summaryEl = document.getElementById("import-preview-summary");
@@ -988,13 +996,11 @@
       toAdd.slice(0, SAMPLE_MAX).forEach((item) => {
         addEl.innerHTML += `<div style="margin-bottom:6px; word-break:break-word;"><strong>${escapeHtml(item.key)}</strong> → ${escapeHtml(item.newVal)}</div>`;
       });
-      if (toAdd.length > SAMPLE_MAX)
-        addEl.innerHTML += `<div style="color:#666;">... (${toAdd.length - SAMPLE_MAX} more)</div>`;
+      if (toAdd.length > SAMPLE_MAX) addEl.innerHTML += `<div style="color:#666;">... (${toAdd.length - SAMPLE_MAX} more)</div>`;
       toOverwrite.slice(0, SAMPLE_MAX).forEach((item) => {
         overEl.innerHTML += `<div style="margin-bottom:6px; word-break:break-word;"><strong>${escapeHtml(item.key)}</strong><div style="color:#999; font-size:12px;">旧：${escapeHtml(item.old)}</div><div style="color:#28a745; font-size:12px;">新：${escapeHtml(item.newVal)}</div></div>`;
       });
-      if (toOverwrite.length > SAMPLE_MAX)
-        overEl.innerHTML += `<div style="color:#666;">... (${toOverwrite.length - SAMPLE_MAX} more)</div>`;
+      if (toOverwrite.length > SAMPLE_MAX) overEl.innerHTML += `<div style="color:#666;">... (${toOverwrite.length - SAMPLE_MAX} more)</div>`;
       const progressEl = document.getElementById("import-preview-progress");
       if (parsedMap.size > IMPORT_LARGE_THRESHOLD) {
         progressEl.style.display = "block";
@@ -1090,8 +1096,7 @@
       }
     }
     function escapeHtml(s) {
-      if (s === null || s === void 0)
-        return "";
+      if (s === null || s === void 0) return "";
       return String(s).replace(/[&<>\\"]/g, function(c) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
       });
@@ -1127,14 +1132,12 @@
     document.getElementById("import-custom-translations-replace").addEventListener("click", () => {
       hiddenFileInput.onchange = (e) => {
         const file = e.target.files && e.target.files[0];
-        if (!file)
-          return;
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = (evt) => {
           try {
             const parsed = JSON.parse(evt.target.result);
-            if (typeof parsed !== "object" || parsed === null)
-              throw new Error("Invalid JSON");
+            if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid JSON");
             showImportPreview(parsed, "replace");
           } catch (err) {
             console.error("导入错误:", err);
@@ -1149,14 +1152,12 @@
     document.getElementById("import-custom-translations-merge").addEventListener("click", () => {
       hiddenFileInput.onchange = (e) => {
         const file = e.target.files && e.target.files[0];
-        if (!file)
-          return;
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = (evt) => {
           try {
             const parsed = JSON.parse(evt.target.result);
-            if (typeof parsed !== "object" || parsed === null)
-              throw new Error("Invalid JSON");
+            if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid JSON");
             showImportPreview(parsed, "merge");
           } catch (err) {
             console.error("导入错误:", err);
@@ -1226,8 +1227,7 @@
               replaceText(document.body, getCombinedTranslations());
               showFeedback("翻译已删除并已应用到当前页面。", "success");
               updateCustomTranslationsList();
-              if (editingKey === key)
-                resetEditState();
+              if (editingKey === key) resetEditState();
             } else {
               showFeedback("删除失败，请检查控制台获取详细信息", "error");
             }
