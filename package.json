@@ -1,6 +1,6 @@
 {
   "name": "rutracker-chinese",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Rutracker 中文化 userscript - modularized source and build",
   "main": "dist/rutracker-chinese.user.js",
   "scripts": {
