@@ -59,6 +59,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Cleanup old prerelease tags
+        if: steps.prerelease.outputs.id
+        uses: actions/github-script@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            // Delete any old tags that start with 'prerelease-' except the current one
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const currentTag = `prerelease-${process.env.GITHUB_SHA}`;
+            const prefix = 'tags/prerelease-';
+            console.log(`Current prerelease tag: ${currentTag}`);
+            const res = await github.rest.git.listMatchingRefs({ owner, repo, ref: prefix });
+            const refs = (res && res.data) ? res.data : [];
+            for (const r of refs) {
+              const refName = r.ref; // e.g. 'refs/tags/prerelease-<sha>'
+              const tagName = refName.replace('refs/tags/', '');
+              if (tagName === currentTag) continue;
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tagName}` });
+                console.log(`Deleted old prerelease tag: ${tagName}`);
+              } catch (err) {
+                console.warn(`Failed deleting tag ${tagName}: ${err.message}`);
+              }
+            }
+
       - name: Zip dist for release
         run: |
           if [ -d dist ] && [ -f dist/rutracker-chinese.user.js ]; then
