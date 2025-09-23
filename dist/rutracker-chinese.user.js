@@ -16,9 +16,6 @@
   // src/builtInI18n.js
   var builtInI18n = /* @__PURE__ */ new Map([
     //----------主页(https://rutracker.org/forum/index.php)----------
-    ////----------发布----------
-    ["Название игры:", "游戏名称:"],
-    ["Только в заголовке:", "标题为:"],
     ////----------左上----------
     ["Главная", "主页"],
     ["Трекер", "跟踪器"],
@@ -67,7 +64,8 @@
     ["в России", "余额"],
     ["Магазины и образование", "商店与教育"],
     //////----------2----------
-    ["ОБХОД БЛОКИРОВОК", "屏蔽"],
+    ["ОБХОД БЛОКИРОВОК", "绕过封锁"],
+    ["Обход блокировок", "绕过封锁"],
     ["VPN-сервисы", "VPN 服务"],
     ["Устойчивый к блокировкам VPN с высоким уровнем приватности", "抗封锁的高隐私 VPN"],
     ["Плагины для браузеров", "浏览器插件"],
@@ -359,6 +357,7 @@
     ["Игры", "游戏"],
     ["Игры для Windows", "Windows 游戏"],
     ["Поиск и обсуждение игр для Windows", "搜索和讨论 Windows 游戏"],
+    ["Поиск и опознание игр.", "搜索和识别游戏。"],
     ["Горячие Новинки", "热门新发布"],
     ["Аркады", "游戏厅游戏"],
     ["Файтинги", "格斗游戏"],
@@ -474,6 +473,7 @@
     ["Общие вопросы", "一般问题"],
     ["Что такое torrent", "什么是种子"],
     ["торрент", "种子"],
+    ["Торрент", "种子"],
     ["Как пользоваться Поиском", "如何使用搜索"],
     ["Кому задать вопрос", "向谁提问"],
     ["Как создать раздачу", "如何创建分发"],
@@ -659,7 +659,7 @@
     ["последний месяц", "过去 30 天"],
     ["Автор раздачи", "发布作者"],
     ["Название содержит", "标题包含"],
-    ["В подразделах", "在小节中"],
+    ["В подразделах", "在分区中"],
     ["Категории", "在版区中"],
     ["Всех разделах", "所有部分"],
     ["По форуму", "在论坛中"],
@@ -675,9 +675,13 @@
     ["Автор", "作者"],
     ["Отв.", "回复"],
     ["Посл. сообщение", "最后回复"],
+    ["Объявления", "公告"],
+    ["Прилеплены", "置顶"],
+    ["Темы", "主题"],
     ["Для удаления тем из списка нажмите на иконку слева от названия любого раздела", "要从列表中删除主题，请单击任意部分名称左侧的图标"],
     ["След.", "下一页"],
     ["Пред.", "上一页"],
+    ["Страница", "当前页/总页数"],
     ["К странице...", "跳转到…"],
     ["Перейти", "前往"],
     ["Показывать", "展示"],
@@ -716,10 +720,56 @@
     ["Управление аватарой", "头像管理"],
     ["Закачки", "下载设置"],
     ["-Дек-", "-12 月-"],
-    ["по разделу", "按部分"],
-    ["по подразд.", "按小节"],
+    ["по разделу", "按版区"],
+    ["по подразд.", "按分区"],
     ["горячая", "热门"],
-    ["Время размещения", "发布时间"]
+    ["Время размещения", "发布时间"],
+    //----------规则----------
+    ["Общие правила и положения", "一般规则和规定"],
+    ["Правила оформления раздач на трекере", "在跟踪器上设计发行版的规则："],
+    ["Всем участникам раздач на данном трекере запрещается:", "本追踪器上的所有参与者禁止："],
+    ["Инструкция по созданию 发布 в разделе:", "在本分区中创建发布的说明："],
+    //----------发布页面----------
+    ["Заполните форму для релиза", "填写发布表格"],
+    ////----------标题为-----------
+    ["Только в заголовке:", "标题为:"],
+    //////----------发布类型-----------
+    ["Тип раздачи", "发布类型"],
+    ["В разработке", "正在开发中"],
+    ["Демоверсия", "试用版"],
+    ["Антология", "选集"],
+    ["Сборник", "收藏"],
+    //////----------标签-----------
+    ["Метка", "标签"],
+    ["Cross-platform", "跨平台"],
+    ["Freeware", "免费软件"],
+    ["VR Only", "仅限 VR"],
+    ["VR Supported", "支持 VR"],
+    ["Для детей", "适合儿童"],
+    ["Эротика", "色情"],
+    ["Otome", "乙女"],
+    ["Guro", "猎奇"],
+    ["Yaoi", "耽美"],
+    ["Yuri", "百合"],
+    //////----------年龄-----------
+    ["Возраст", "年龄"],
+    //////----------接口-----------
+    ["Порт", "接口"],
+    ////----------游戏名称-----------
+    ["Название игры:", "游戏名称:"],
+    ["Название на языке оригинала:", "原始语言的名称："],
+    ["Официальное локализованное название на русском (английском) / Альтернативные названия:", "官方本地化名称（俄语/英语）/ 其他名称："],
+    ["Часть", "第几部"],
+    ["ч. ", "第"],
+    ['Указывается номер игры в серии для форума "Квесты в стиле "Поиск предметов", если название игры не содержит в себе номер части', "如果游戏名称中不包含部分号码，则在“搜索发布”对应的游戏分区中指定系列游戏的编号。"],
+    ////----------海报-----------
+    ["Постер не должен содержать ссылок на сторонние ресурсы. Допустимые размеры постера — от 200 до 1000 пикселей для любой из сторон", "海报不得包含指向第三方资源的链接。海报的允许尺寸为任意一侧200到1000像素。"],
+    ["Загрузить картинку", "上传图片"],
+    ["Как залить картинку на бесплатный хост", "如何将图片上传到免费主机"],
+    ["Год выпуска:", "发行年份："],
+    ["Как залить картинку на бесплатный хост", "如何将图片上传到免费主机"],
+    ["Как залить картинку на бесплатный хост", "如何将图片上传到免费主机"],
+    ["Как залить картинку на бесплатный хост", "如何将图片上传到免费主机"]
   ]);
 
   // src/storage.js
@@ -802,7 +852,8 @@
       }
     }
   }
-  function replaceText(node, translations, matcher) {
+  var DEFAULT_MAX_TRANSLATE_LENGTH = 80;
+  function replaceText(node, translations, matcher, options) {
     if (!translations || typeof translations.forEach !== "function") return;
     const STATS_ENABLED = false;
     let __i18nStats = null;
@@ -824,10 +875,12 @@
         matcher = { pattern, map };
       }
     }
+    const maxLen = options && typeof options.maxTranslateLength === "number" ? options.maxTranslateLength : DEFAULT_MAX_TRANSLATE_LENGTH;
     if (node.nodeType === Node.TEXT_NODE) {
       if (!matcher) return;
       if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesScanned++;
       let text = node.nodeValue;
+      if (text && text.length > maxLen) return;
       const newText = text.replace(matcher.pattern, (matched) => {
         if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.replacements++;
         return matcher.map.get(matched) || matched;
@@ -859,17 +912,20 @@
       }
       if (node instanceof HTMLInputElement) {
         if (node.placeholder) {
-          const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+          const placeholderRaw = node.placeholder;
           const id = getDataIdFromElement(node) || genI18nId();
           setDataIdOnElement(node, id);
           const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
           if (typeof info.attrs.placeholder === "undefined") info.attrs.placeholder = node.placeholder;
           originalNodeMap.set(node, info);
           originalIdMap.set(id, info);
-          node.placeholder = placeholder;
+          if (!(placeholderRaw && placeholderRaw.length > maxLen)) {
+            const placeholder = placeholderRaw.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+            node.placeholder = placeholder;
+          }
         }
         if (node.value && (node.type === "button" || node.type === "submit" || node.type === "reset")) {
-          const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+          const valueRaw = node.value;
           const id = getDataIdFromElement(node) || genI18nId();
           setDataIdOnElement(node, id);
           const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
@@ -881,26 +937,33 @@
             node.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(JSON.stringify(info.attrs)));
           } catch (e) {
           }
-          node.value = currentValue;
+          if (!(valueRaw && valueRaw.length > maxLen)) {
+            const currentValue = valueRaw.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+            node.value = currentValue;
+          }
         }
       }
       if (node.title) {
-        const title = node.title.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
-        const id = getDataIdFromElement(node) || genI18nId();
-        setDataIdOnElement(node, id);
-        const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
-        if (typeof info.attrs.title === "undefined") info.attrs.title = node.title;
-        captureAttrs(node, info);
-        originalNodeMap.set(node, info);
-        originalIdMap.set(id, info);
-        try {
-          node.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(JSON.stringify(info.attrs)));
-        } catch (e) {
+        const titleRaw = node.title;
+        if (titleRaw && titleRaw.length > maxLen) {
+        } else {
+          const title = titleRaw.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+          const id = getDataIdFromElement(node) || genI18nId();
+          setDataIdOnElement(node, id);
+          const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
+          if (typeof info.attrs.title === "undefined") info.attrs.title = node.title;
+          captureAttrs(node, info);
+          originalNodeMap.set(node, info);
+          originalIdMap.set(id, info);
+          try {
+            node.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(JSON.stringify(info.attrs)));
+          } catch (e) {
+          }
+          node.title = title;
         }
-        node.title = title;
       }
       node.childNodes.forEach((childNode) => {
-        replaceText(childNode, translations, matcher);
+        replaceText(childNode, translations, matcher, options);
       });
     }
   }
