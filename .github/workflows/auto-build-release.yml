@@ -48,7 +48,7 @@ jobs:
           fi
       - name: Create/Update prerelease
         id: prerelease
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: prerelease-${{ github.sha }}
           name: "Pre-release ${{ github.sha }}"
@@ -100,10 +100,10 @@ jobs:
         id: prod_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ fromJson(steps.get_package_version.outputs.pkg).version }}
-          name: "Release v${{ fromJson(steps.get_package_version.outputs.pkg).version }}"
+          tag_name: v${{ steps.get_package_versions.outputs.cur_version }}
+          name: "Release v${{ steps.get_package_versions.outputs.cur_version }}"
           body: |
-            Release for version bump to v${{ fromJson(steps.get_package_version.outputs.pkg).version }}. Created automatically because package.json changed.
+            Release for version bump to v${{ steps.get_package_versions.outputs.cur_version }}. Created automatically because package.json changed.
           draft: false
           prerelease: false
         env:
@@ -131,6 +131,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Sync dist from production release and commit if changed
+        if: steps.version_check.outputs.changed == 'true' && steps.prod_release.outputs.upload_url
+        run: |
+          mkdir -p dist
+          gh release download v${{ steps.get_package_versions.outputs.cur_version }} -n rutracker-chinese.user.js -D dist || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main --depth=1 || true
+          git add dist/rutracker-chinese.user.js || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(build): sync dist/rutracker-chinese.user.js from release-v${{ steps.get_package_versions.outputs.cur_version }} [skip ci]" || true
+            git push origin HEAD:main || true
+          else
+            echo "No changes to dist/rutracker-chinese.user.js"
+          fi
+
       - name: Upload prerelease asset (dist)
         if: steps.prerelease.outputs.id
         uses: actions/upload-release-asset@v1
@@ -152,5 +168,23 @@ jobs:
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync dist from prerelease and commit if changed
+        if: steps.prerelease.outputs.id
+        run: |
+          mkdir -p dist
+          # download the built userscript from the prerelease
+          gh release download prerelease-${{ github.sha }} -n rutracker-chinese.user.js -D dist || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main --depth=1 || true
+          git add dist/rutracker-chinese.user.js || true
+          # if there are staged changes, commit and push back to main (skip ci to avoid loops)
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(build): sync dist/rutracker-chinese.user.js from prerelease-${{ github.sha }} [skip ci]" || true
+            git push origin HEAD:main || true
+          else
+            echo "No changes to dist/rutracker-chinese.user.js"
+          fi
 
 
