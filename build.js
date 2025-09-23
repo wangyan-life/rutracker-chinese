@@ -5,6 +5,8 @@ const path = require('path');
 const headerPath = path.resolve(__dirname, 'rutracker-header.txt');
 const outDir = path.resolve(__dirname, 'dist');
 const outFile = path.join(outDir, 'rutracker-chinese.user.js');
+// also produce a single-file userscript at repo root for convenience
+const rootOutFile = path.resolve(__dirname, 'rutracker-chinese.user.js');
 
 const buildOptions = {
   entryPoints: [path.resolve(__dirname, 'src', 'index.js')],
@@ -124,6 +126,13 @@ async function buildWithVersion(watch) {
   }
 
   fs.writeFileSync(outFile, finalHeader + bundle, 'utf8');
+  // also mirror to repo root so single-file userscript is up-to-date
+  try {
+    fs.writeFileSync(rootOutFile, finalHeader + bundle, 'utf8');
+    console.log(`Mirrored userscript to: ${rootOutFile}`);
+  } catch (err) {
+    console.warn(`Warning: failed to write root userscript: ${err.message}`);
+  }
   fs.unlinkSync(buildOptions.outfile);
 
   console.log(`Built userscript: ${outFile}`);

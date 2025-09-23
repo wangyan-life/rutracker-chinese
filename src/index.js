@@ -1,5 +1,5 @@
 import { init as initUI } from './ui.js';
-import { getCombinedTranslations } from './storage.js';
+import { getCombinedTranslations, getTranslationEnabled } from './storage.js';
 import { replaceText } from './replace.js';
 
 // 模块私有当前生效翻译
@@ -16,12 +16,12 @@ export function init() {
     getCustomTranslations: () => rutrackerCurrentTranslations,
     refreshTranslations: () => {
       rutrackerCurrentTranslations = getCombinedTranslations();
-      replaceText(document.body, rutrackerCurrentTranslations);
+      if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
     }
   });
 
-  // 初始替换
-  replaceText(document.body, rutrackerCurrentTranslations);
+  // 初始替换（仅在开启时执行）
+  if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
 
   // 监听DOM变化
   const observer = new MutationObserver(mutations => {

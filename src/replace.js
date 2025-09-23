@@ -5,6 +5,40 @@ export function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Backup storage
+// originalNodeMap: map from element/node object -> info (for quick restore while node exists)
+const originalNodeMap = new Map();
+// originalIdMap: map from generated id -> info (allows restoring when DOM was re-created
+// by matching elements that carry the same data-rutracker-i18n-id attribute)
+const originalIdMap = new Map();
+
+let __rutracker_i18n_id_counter = 1;
+function genI18nId() {
+  return `rutracker-i18n-${__rutracker_i18n_id_counter++}`;
+}
+
+function setDataIdOnElement(el, id) {
+  try { el.setAttribute('data-rutracker-i18n-id', id); } catch (e) { /* ignore */ }
+}
+
+function getDataIdFromElement(el) {
+  try { return el.getAttribute && el.getAttribute('data-rutracker-i18n-id'); } catch (e) { return null; }
+}
+
+const ATTRS_TO_BACKUP = ['placeholder', 'value', 'title', 'aria-label', 'alt', 'aria-labelledby', 'aria-describedby'];
+
+function captureAttrs(node, info) {
+  if (!info.attrs) info.attrs = {};
+  for (const a of ATTRS_TO_BACKUP) {
+    try {
+      // prefer getAttribute to capture exact string
+      if (node.hasAttribute && node.hasAttribute(a) && typeof info.attrs[a] === 'undefined') {
+        info.attrs[a] = node.getAttribute(a);
+      }
+    } catch (e) { /* ignore per-attr errors */ }
+  }
+}
+
 export function replaceText(node, translations, matcher) {
   if (!translations || typeof translations.forEach !== 'function') return;
 
@@ -48,7 +82,28 @@ export function replaceText(node, translations, matcher) {
       return matcher.map.get(matched) || matched;
     });
     if (newText !== text) {
-      node.nodeValue = newText;
+      // Backup original text. Text nodes can't carry attributes, so we wrap the
+      // original text node with a span that contains a data id and the translated text.
+      const parent = node.parentNode;
+      if (parent) {
+        const id = genI18nId();
+        const info = { type: 'text', original: text };
+        originalIdMap.set(id, info);
+        // create wrapper span
+        const span = document.createElement('span');
+        setDataIdOnElement(span, id);
+        // store original text in a data attribute (encoded) to help restore after DOM rebuild
+        try { span.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(text)); } catch (e) { /* ignore */ }
+        span.textContent = newText;
+        // replace the text node with the span
+        parent.replaceChild(span, node);
+        // also keep a direct reference in originalNodeMap for quick restore while node exists
+        originalNodeMap.set(span, info);
+      } else {
+        // fallback: mutate node directly and store backup by reference
+        if (!originalNodeMap.has(node)) originalNodeMap.set(node, { nodeValue: text, attrs: {} });
+        node.nodeValue = newText;
+      }
       if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesReplaced++;
     }
   } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -59,18 +114,41 @@ export function replaceText(node, translations, matcher) {
     if (node instanceof HTMLInputElement) {
       if (node.placeholder) {
         const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
-        node.placeholder = placeholder;
+  const id = getDataIdFromElement(node) || genI18nId();
+  setDataIdOnElement(node, id);
+  const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
+  if (typeof info.attrs.placeholder === 'undefined') info.attrs.placeholder = node.placeholder;
+  originalNodeMap.set(node, info);
+  originalIdMap.set(id, info);
+  node.placeholder = placeholder;
       }
 
       if (node.value && (node.type === 'button' || node.type === 'submit' || node.type === 'reset')) {
-        const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
-        node.value = currentValue;
+  const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
+  const id = getDataIdFromElement(node) || genI18nId();
+  setDataIdOnElement(node, id);
+  const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
+  if (typeof info.attrs.value === 'undefined') info.attrs.value = node.value;
+  captureAttrs(node, info);
+  originalNodeMap.set(node, info);
+  originalIdMap.set(id, info);
+  // also store encoded attrs snapshot for robustness if DOM is serialized/recreated
+  try { node.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(JSON.stringify(info.attrs))); } catch (e) { }
+  node.value = currentValue;
       }
     }
 
     if (node.title) {
       const title = node.title.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
-      node.title = title;
+      const id = getDataIdFromElement(node) || genI18nId();
+      setDataIdOnElement(node, id);
+  const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
+  if (typeof info.attrs.title === 'undefined') info.attrs.title = node.title;
+  captureAttrs(node, info);
+  originalNodeMap.set(node, info);
+  originalIdMap.set(id, info);
+  try { node.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(JSON.stringify(info.attrs))); } catch (e) { }
+  node.title = title;
     }
 
     node.childNodes.forEach(childNode => {
@@ -123,4 +201,78 @@ export function buildReverseMap(translations) {
     }
   }
   return rev;
+}
+
+// Restore backed-up originals to DOM. If a predicate function is provided it
+// will be called with (node, info) and only nodes for which it returns true
+// will be restored. By default all backed-up nodes are restored.
+export function restoreOriginals(predicate) {
+  try {
+    // First, restore by matching elements that have data-rutracker-i18n-id
+    if (typeof document !== 'undefined' && document.querySelectorAll) {
+      const els = document.querySelectorAll('[data-rutracker-i18n-id]');
+      els.forEach(el => {
+        try {
+          const id = getDataIdFromElement(el);
+          if (!id) return;
+              let info = originalIdMap.get(id);
+              // If we don't have an entry, try to read a serialized backup from attribute
+              if (!info) {
+                try {
+                  const raw = el.getAttribute && el.getAttribute('data-rutracker-i18n-orig');
+                  if (raw) {
+                    const decoded = decodeURIComponent(raw);
+                    try {
+                      const parsed = JSON.parse(decoded);
+                      info = { type: 'element', attrs: parsed };
+                    } catch (e) {
+                      // decoded might be plain text original for text nodes
+                      info = { type: 'text', original: decoded };
+                    }
+                  }
+                } catch (e) { /* ignore attr decode errors */ }
+                if (!info) return;
+              }
+          if (typeof predicate === 'function' && !predicate(el, info)) return;
+          if (info.type === 'text') {
+            // restore original text: replace element with a text node of original
+            const txt = document.createTextNode(info.original);
+            el.parentNode && el.parentNode.replaceChild(txt, el);
+          } else if (info.type === 'element') {
+            if (info.attrs) {
+              if (typeof info.attrs.placeholder !== 'undefined') try { el.placeholder = info.attrs.placeholder; } catch (e) { }
+              if (typeof info.attrs.value !== 'undefined') try { el.value = info.attrs.value; } catch (e) { }
+              if (typeof info.attrs.title !== 'undefined') try { el.title = info.attrs.title; } catch (e) { }
+            }
+          }
+          // cleanup
+          originalIdMap.delete(id);
+          originalNodeMap.delete(el);
+          try { el.removeAttribute && el.removeAttribute('data-rutracker-i18n-id'); } catch (e) { }
+        } catch (e) { /* ignore per-element errors */ }
+      });
+    }
+
+    // Fallback: restore any direct node references still held in originalNodeMap
+    for (const [node, info] of Array.from(originalNodeMap.entries())) {
+      try {
+        if (typeof predicate === 'function' && !predicate(node, info)) continue;
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (info && typeof info.nodeValue !== 'undefined' && info.nodeValue !== null) node.nodeValue = info.nodeValue;
+        } else {
+          if (info && info.attrs) {
+            if (typeof info.attrs.placeholder !== 'undefined') try { node.placeholder = info.attrs.placeholder; } catch (e) { }
+            if (typeof info.attrs.value !== 'undefined') try { node.value = info.attrs.value; } catch (e) { }
+            if (typeof info.attrs.title !== 'undefined') try { node.title = info.attrs.title; } catch (e) { }
+          }
+        }
+      } catch (e) {
+        // ignore individual restore errors
+      }
+      originalNodeMap.delete(node);
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('restoreOriginals outer error', e);
+  }
 }

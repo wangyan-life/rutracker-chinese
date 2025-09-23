@@ -1,0 +1,130 @@
+name: Auto Build & Release
+
+on:
+  push:
+    branches:
+      - 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies (skip puppeteer download)
+        run: |
+          export PUPPETEER_SKIP_DOWNLOAD=1
+          npm ci
+
+      - name: Build
+        run: |
+          export PUPPETEER_SKIP_DOWNLOAD=1
+          npm run build
+      - name: Create/Update prerelease
+        id: prerelease
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: prerelease-${{ github.sha }}
+          name: "Pre-release ${{ github.sha }}"
+          body: |
+            Automated pre-release build for commit ${{ github.sha }}.
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Zip dist for release
+        run: |
+          if [ -d dist ] && [ -f dist/rutracker-chinese.user.js ]; then
+            cd dist
+            zip -j rutracker-chinese.zip rutracker-chinese.user.js || true
+            cd -
+          fi
+
+      - name: Get package.json version
+        id: get_package_version
+        run: |
+          node -e "console.log(JSON.stringify({version: require('./package.json').version}))" > pkg.json
+          echo "pkg=$(cat pkg.json)" >> $GITHUB_OUTPUT
+          echo "::set-output name=pkg::$(cat pkg.json)"
+
+      - name: Check if package.json changed vs main
+        id: version_check
+        run: |
+          git fetch origin main --depth=1 || true
+          if git diff --name-only origin/main...HEAD | grep -q "^package.json$"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create release when package.json changed
+        if: steps.version_check.outputs.changed == 'true'
+        id: prod_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ fromJson(steps.get_package_version.outputs.pkg).version }}
+          name: "Release v${{ fromJson(steps.get_package_version.outputs.pkg).version }}"
+          body: |
+            Release for version bump to v${{ fromJson(steps.get_package_version.outputs.pkg).version }}. Created automatically because package.json changed.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload production release asset (dist)
+        if: steps.version_check.outputs.changed == 'true' && steps.prod_release.outputs.upload_url
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.prod_release.outputs.upload_url }}
+          asset_path: ./dist/rutracker-chinese.user.js
+          asset_name: rutracker-chinese.user.js
+          asset_content_type: application/javascript
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload production release zip
+        if: steps.version_check.outputs.changed == 'true' && steps.prod_release.outputs.upload_url
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.prod_release.outputs.upload_url }}
+          asset_path: ./dist/rutracker-chinese.zip
+          asset_name: rutracker-chinese.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload prerelease asset (dist)
+        if: steps.prerelease.outputs.id
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.prerelease.outputs.upload_url }}
+          asset_path: ./dist/rutracker-chinese.user.js
+          asset_name: rutracker-chinese.user.js
+          asset_content_type: application/javascript
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload prerelease zip
+        if: steps.prerelease.outputs.id
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.prerelease.outputs.upload_url }}
+          asset_path: ./dist/rutracker-chinese.zip
+          asset_name: rutracker-chinese.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
