@@ -39,7 +39,11 @@ function captureAttrs(node, info) {
   }
 }
 
-export function replaceText(node, translations, matcher) {
+export const DEFAULT_MAX_TRANSLATE_LENGTH = 80;
+
+// replaceText(node, translations, matcher, options)
+// options: { maxTranslateLength: number }
+export function replaceText(node, translations, matcher, options) {
   if (!translations || typeof translations.forEach !== 'function') return;
 
   // Build-time instrumentation flag. When building with --stats 1, build.js sets
@@ -73,10 +77,14 @@ export function replaceText(node, translations, matcher) {
     }
   }
 
+  const maxLen = options && typeof options.maxTranslateLength === 'number' ? options.maxTranslateLength : DEFAULT_MAX_TRANSLATE_LENGTH;
+
   if (node.nodeType === Node.TEXT_NODE) {
     if (!matcher) return;
     if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesScanned++;
     let text = node.nodeValue;
+    // skip translation for long strings to avoid partial in-line mixing of languages
+    if (text && text.length > maxLen) return;
     const newText = text.replace(matcher.pattern, matched => {
       if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.replacements++;
       return matcher.map.get(matched) || matched;
@@ -113,18 +121,22 @@ export function replaceText(node, translations, matcher) {
 
     if (node instanceof HTMLInputElement) {
       if (node.placeholder) {
-        const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
-  const id = getDataIdFromElement(node) || genI18nId();
-  setDataIdOnElement(node, id);
-  const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
-  if (typeof info.attrs.placeholder === 'undefined') info.attrs.placeholder = node.placeholder;
-  originalNodeMap.set(node, info);
-  originalIdMap.set(id, info);
-  node.placeholder = placeholder;
+        const placeholderRaw = node.placeholder;
+        const id = getDataIdFromElement(node) || genI18nId();
+        setDataIdOnElement(node, id);
+        const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
+        if (typeof info.attrs.placeholder === 'undefined') info.attrs.placeholder = node.placeholder;
+        originalNodeMap.set(node, info);
+        originalIdMap.set(id, info);
+        // only replace if not too long
+        if (!(placeholderRaw && placeholderRaw.length > maxLen)) {
+          const placeholder = placeholderRaw.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
+          node.placeholder = placeholder;
+        }
       }
 
       if (node.value && (node.type === 'button' || node.type === 'submit' || node.type === 'reset')) {
-  const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
+  const valueRaw = node.value;
   const id = getDataIdFromElement(node) || genI18nId();
   setDataIdOnElement(node, id);
   const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
@@ -134,25 +146,35 @@ export function replaceText(node, translations, matcher) {
   originalIdMap.set(id, info);
   // also store encoded attrs snapshot for robustness if DOM is serialized/recreated
   try { node.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(JSON.stringify(info.attrs))); } catch (e) { }
-  node.value = currentValue;
+  // only replace if not too long
+  if (!(valueRaw && valueRaw.length > maxLen)) {
+    const currentValue = valueRaw.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
+    node.value = currentValue;
+  }
       }
     }
 
     if (node.title) {
-      const title = node.title.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
-      const id = getDataIdFromElement(node) || genI18nId();
-      setDataIdOnElement(node, id);
-  const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
-  if (typeof info.attrs.title === 'undefined') info.attrs.title = node.title;
-  captureAttrs(node, info);
-  originalNodeMap.set(node, info);
-  originalIdMap.set(id, info);
-  try { node.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(JSON.stringify(info.attrs))); } catch (e) { }
-  node.title = title;
+      // skip translation for long titles
+      const titleRaw = node.title;
+      if (titleRaw && titleRaw.length > maxLen) {
+        // still capture original attrs for potential restore
+      } else {
+        const title = titleRaw.replace(matcher ? matcher.pattern : /$^/, m => (matcher ? matcher.map.get(m) || m : m));
+        const id = getDataIdFromElement(node) || genI18nId();
+        setDataIdOnElement(node, id);
+        const info = originalNodeMap.get(node) || { type: 'element', attrs: {} };
+        if (typeof info.attrs.title === 'undefined') info.attrs.title = node.title;
+        captureAttrs(node, info);
+        originalNodeMap.set(node, info);
+        originalIdMap.set(id, info);
+        try { node.setAttribute('data-rutracker-i18n-orig', encodeURIComponent(JSON.stringify(info.attrs))); } catch (e) { }
+        node.title = title;
+      }
     }
 
     node.childNodes.forEach(childNode => {
-      replaceText(childNode, translations, matcher);
+      replaceText(childNode, translations, matcher, options);
     });
 
     // If this is the top-level caller (no parent element) we can finalize timing
