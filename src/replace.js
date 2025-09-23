@@ -106,3 +106,21 @@ export function i18nStatsEnd() {
   }
   return null;
 }
+
+// Build reverse map: translation -> original (keep longest original on collisions)
+export function buildReverseMap(translations) {
+  const rev = new Map();
+  const entries = [];
+  translations.forEach((v, k) => {
+    if (v) entries.push([k, v]);
+  });
+  // sort by translated value length desc to prefer longer matches first
+  entries.sort((a, b) => (b[1] ? b[1].length - (a[1] ? a[1].length : 0) : 0));
+  for (const [orig, trans] of entries) {
+    if (!trans) continue;
+    if (!rev.has(trans) || orig.length > (rev.get(trans) || '').length) {
+      rev.set(trans, orig);
+    }
+  }
+  return rev;
+}

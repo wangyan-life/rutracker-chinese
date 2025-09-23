@@ -32,3 +32,22 @@ export function getCombinedTranslations() {
   }
   return combined;
 }
+
+// Persisted translation enabled state (used by UI and build)
+export function getTranslationEnabled() {
+  try {
+    return GM_getValue('translationEnabled', true);
+  } catch (e) {
+    return true;
+  }
+}
+
+export function saveTranslationEnabled(enabled) {
+  try {
+    GM_setValue('translationEnabled', !!enabled);
+    return true;
+  } catch (e) {
+    console.error('Error saving translation enabled state:', e);
+    return false;
+  }
+}

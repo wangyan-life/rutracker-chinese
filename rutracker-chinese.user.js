@@ -860,6 +860,12 @@
                            border-radius: 4px; cursor: pointer; flex: 1;">导入（合并）</button>
             </div>
 
+            <div style="display:flex; gap:10px; margin-top:12px; align-items:center;">
+                <label style="margin:0; font-weight:600;">翻译:</label>
+                <button id="toggle-translation" style="background:#6f42c1; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">切换</button>
+                <div id="translation-status" style="margin-left:8px; color:#666; font-size:13px;"></div>
+            </div>
+
             <div style="font-size: 13px; color: #666; margin-top: 15px;">
                 <p><strong>提示:</strong> 添加、编辑、导入或删除翻译后会立即生效（无需刷新）。</p>
             </div>
@@ -884,6 +890,27 @@
                 // 重置编辑状态
                 resetEditState();
             }
+
+            // : translation enabled state
+            function getTranslationEnabled() {
+                try {
+                    return GM_getValue('translationEnabled', true);
+                } catch (e) {
+                    return true;
+                }
+            }
+
+            function saveTranslationEnabled(enabled) {
+                try {
+                    GM_setValue('translationEnabled', !!enabled);
+                    return true;
+                } catch (e) {
+                    console.error('Error saving translation enabled state:', e);
+                    return false;
+                }
+            }
+
+            // 
         });
 
         // 点击页面其他地方关闭面板
@@ -892,6 +919,21 @@
                 panel.style.display = 'none';
                 // 重置编辑状态
                 resetEditState();
+            // : build reverse map for reverting translations
+            function buildReverseMap(translations) {
+                const rev = new Map();
+                // entries sorted by value length desc to avoid partial collisions
+                const entries = Array.from(translations.entries()).map(([k, v]) => [k, v]);
+                entries.sort((a, b) => (b[1] ? b[1].length - (a[1] ? a[1].length : 0) : 0));
+                for (const [orig, trans] of entries) {
+                    if (!trans) continue;
+                    // if multiple originals map to same translation, keep the longest original
+                    if (!rev.has(trans) || (orig.length > (rev.get(trans) || '').length)) {
+                        rev.set(trans, orig);
+                    }
+                }
+                return rev;
+            }
             }
         });
 
@@ -927,7 +969,7 @@
                 if (saveCustomTranslations(custom)) {
                     // 更新全局翻译并立即应用
                     rutrackerCurrentTranslations = getCombinedTranslations();
-                    replaceText(document.body, rutrackerCurrentTranslations);
+                    if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                     showFeedback('翻译已更新并已应用到当前页面。', 'success');
                     editingKey = null;
                 } else {
@@ -941,7 +983,7 @@
                 if (saveCustomTranslations(custom)) {
                     // 更新全局翻译并立即应用
                     rutrackerCurrentTranslations = getCombinedTranslations();
-                    replaceText(document.body, rutrackerCurrentTranslations);
+                    if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                     showFeedback('翻译已添加并已应用到当前页面。', 'success');
                 } else {
                     showFeedback('保存失败，请检查控制台获取详细信息', 'error');
@@ -960,13 +1002,51 @@
             updateCustomTranslationsList();
         });
 
+        // 翻译开关：初始化状态与事件绑定
+        const toggleBtn = document.getElementById('toggle-translation');
+        const statusEl = document.getElementById('translation-status');
+        function updateToggleUI() {
+            const enabled = getTranslationEnabled();
+            statusEl.textContent = enabled ? '已启用' : '已禁用';
+            toggleBtn.style.background = enabled ? '#28a745' : '#6f42c1';
+            toggleBtn.textContent = enabled ? '关闭翻译' : '开启翻译';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            const cur = getTranslationEnabled();
+            const next = !cur;
+            if (!saveTranslationEnabled(next)) {
+                showFeedback('无法保存翻译开关状态', 'error');
+                return;
+            }
+
+            // 切换时应用或还原翻译
+            if (next) {
+                // 开启：应用当前合并的翻译
+                rutrackerCurrentTranslations = getCombinedTranslations();
+                if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
+            } else {
+                // 关闭：尝试还原已被翻译的文本
+                // 使用反向映射将译文替换回原文
+                const rev = buildReverseMap(getCombinedTranslations());
+                if (rev.size > 0) {
+                    // reuse replaceText by passing reverse map as translations (value->key)
+                    replaceText(document.body, rev);
+                }
+            }
+            updateToggleUI();
+        });
+
+        // 在面板打开时展示当前状态
+        updateToggleUI();
+
         // 重置翻译按钮事件
         document.getElementById('reset-custom-translations').addEventListener('click', () => {
             if (confirm('确定要重置所有自定义翻译吗？此操作不可撤销。')) {
                 if (saveCustomTranslations(new Map())) {
                     // 更新全局翻译并立即应用
                     rutrackerCurrentTranslations = getCombinedTranslations();
-                    replaceText(document.body, rutrackerCurrentTranslations);
+                    if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                     showFeedback('已重置所有自定义翻译并已应用到当前页面。', 'success');
                     updateCustomTranslationsList();
                     resetEditState();
@@ -1140,7 +1220,7 @@
                         // 保存并应用
                         if (saveCustomTranslations(newMap)) {
                             rutrackerCurrentTranslations = getCombinedTranslations();
-                            replaceText(document.body, rutrackerCurrentTranslations);
+                            if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                             updateCustomTranslationsList();
                             resetEditState();
                             progressEl.innerHTML = `导入完成：${total} 条目已导入（替换模式）。`;
@@ -1171,7 +1251,7 @@
                     } else {
                         if (saveCustomTranslations(custom)) {
                             rutrackerCurrentTranslations = getCombinedTranslations();
-                            replaceText(document.body, rutrackerCurrentTranslations);
+                            if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                             updateCustomTranslationsList();
                             resetEditState();
                             progressEl.innerHTML = `导入完成：${total} 条目已合并。`;
@@ -1351,9 +1431,9 @@
                         custom.delete(key);
 
                         if (saveCustomTranslations(custom)) {
-                            // 更新全局翻译并立即应用
+                            // 更新全局翻译并立即应用（仅在开启时）
                             rutrackerCurrentTranslations = getCombinedTranslations();
-                            replaceText(document.body, rutrackerCurrentTranslations);
+                            if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
                             showFeedback('翻译已删除并已应用到当前页面。', 'success');
                             updateCustomTranslationsList();
 
@@ -1488,15 +1568,15 @@
         // 创建UI
         createTranslationUI();
 
-        // 初始替换
-        replaceText(document.body, rutrackerCurrentTranslations);
+    // 初始替换（仅在翻译开启时）
+    if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
 
         // 监听DOM变化
         const observer = new MutationObserver(mutations => {
             mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    replaceText(node, rutrackerCurrentTranslations);
-                });
+                    mutation.addedNodes.forEach(node => {
+                        if (getTranslationEnabled()) replaceText(node, rutrackerCurrentTranslations);
+                    });
             });
         });
 
