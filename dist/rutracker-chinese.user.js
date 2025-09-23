@@ -358,7 +358,7 @@
     //////----------19----------
     ["Игры", "游戏"],
     ["Игры для Windows", "Windows 游戏"],
-    ["поиск и обсуждение игр для Windows", "搜索和讨论 Windows 游戏"],
+    ["Поиск и обсуждение игр для Windows", "搜索和讨论 Windows 游戏"],
     ["Горячие Новинки", "热门新发布"],
     ["Аркады", "游戏厅游戏"],
     ["Файтинги", "格斗游戏"],
@@ -750,10 +750,57 @@
     }
     return combined;
   }
+  function getTranslationEnabled() {
+    try {
+      return GM_getValue("translationEnabled", true);
+    } catch (e) {
+      return true;
+    }
+  }
+  function saveTranslationEnabled(enabled) {
+    try {
+      GM_setValue("translationEnabled", !!enabled);
+      return true;
+    } catch (e) {
+      console.error("Error saving translation enabled state:", e);
+      return false;
+    }
+  }
 
   // src/replace.js
   function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  var originalNodeMap = /* @__PURE__ */ new Map();
+  var originalIdMap = /* @__PURE__ */ new Map();
+  var __rutracker_i18n_id_counter = 1;
+  function genI18nId() {
+    return `rutracker-i18n-${__rutracker_i18n_id_counter++}`;
+  }
+  function setDataIdOnElement(el, id) {
+    try {
+      el.setAttribute("data-rutracker-i18n-id", id);
+    } catch (e) {
+    }
+  }
+  function getDataIdFromElement(el) {
+    try {
+      return el.getAttribute && el.getAttribute("data-rutracker-i18n-id");
+    } catch (e) {
+      return null;
+    }
+  }
+  var ATTRS_TO_BACKUP = ["placeholder", "value", "title", "aria-label", "alt", "aria-labelledby", "aria-describedby"];
+  function captureAttrs(node, info) {
+    if (!info.attrs) info.attrs = {};
+    for (const a of ATTRS_TO_BACKUP) {
+      try {
+        if (node.hasAttribute && node.hasAttribute(a) && typeof info.attrs[a] === "undefined") {
+          info.attrs[a] = node.getAttribute(a);
+        }
+      } catch (e) {
+      }
+    }
   }
   function replaceText(node, translations, matcher) {
     if (!translations || typeof translations.forEach !== "function") return;
@@ -786,7 +833,24 @@
         return matcher.map.get(matched) || matched;
       });
       if (newText !== text) {
-        node.nodeValue = newText;
+        const parent = node.parentNode;
+        if (parent) {
+          const id = genI18nId();
+          const info = { type: "text", original: text };
+          originalIdMap.set(id, info);
+          const span = document.createElement("span");
+          setDataIdOnElement(span, id);
+          try {
+            span.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(text));
+          } catch (e) {
+          }
+          span.textContent = newText;
+          parent.replaceChild(span, node);
+          originalNodeMap.set(span, info);
+        } else {
+          if (!originalNodeMap.has(node)) originalNodeMap.set(node, { nodeValue: text, attrs: {} });
+          node.nodeValue = newText;
+        }
         if (STATS_ENABLED && __i18nStats && __i18nStats.last) __i18nStats.last.nodesReplaced++;
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -796,20 +860,132 @@
       if (node instanceof HTMLInputElement) {
         if (node.placeholder) {
           const placeholder = node.placeholder.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+          const id = getDataIdFromElement(node) || genI18nId();
+          setDataIdOnElement(node, id);
+          const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
+          if (typeof info.attrs.placeholder === "undefined") info.attrs.placeholder = node.placeholder;
+          originalNodeMap.set(node, info);
+          originalIdMap.set(id, info);
           node.placeholder = placeholder;
         }
         if (node.value && (node.type === "button" || node.type === "submit" || node.type === "reset")) {
           const currentValue = node.value.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+          const id = getDataIdFromElement(node) || genI18nId();
+          setDataIdOnElement(node, id);
+          const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
+          if (typeof info.attrs.value === "undefined") info.attrs.value = node.value;
+          captureAttrs(node, info);
+          originalNodeMap.set(node, info);
+          originalIdMap.set(id, info);
+          try {
+            node.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(JSON.stringify(info.attrs)));
+          } catch (e) {
+          }
           node.value = currentValue;
         }
       }
       if (node.title) {
         const title = node.title.replace(matcher ? matcher.pattern : /$^/, (m) => matcher ? matcher.map.get(m) || m : m);
+        const id = getDataIdFromElement(node) || genI18nId();
+        setDataIdOnElement(node, id);
+        const info = originalNodeMap.get(node) || { type: "element", attrs: {} };
+        if (typeof info.attrs.title === "undefined") info.attrs.title = node.title;
+        captureAttrs(node, info);
+        originalNodeMap.set(node, info);
+        originalIdMap.set(id, info);
+        try {
+          node.setAttribute("data-rutracker-i18n-orig", encodeURIComponent(JSON.stringify(info.attrs)));
+        } catch (e) {
+        }
         node.title = title;
       }
       node.childNodes.forEach((childNode) => {
         replaceText(childNode, translations, matcher);
       });
+    }
+  }
+  function restoreOriginals(predicate) {
+    try {
+      if (typeof document !== "undefined" && document.querySelectorAll) {
+        const els = document.querySelectorAll("[data-rutracker-i18n-id]");
+        els.forEach((el) => {
+          try {
+            const id = getDataIdFromElement(el);
+            if (!id) return;
+            let info = originalIdMap.get(id);
+            if (!info) {
+              try {
+                const raw = el.getAttribute && el.getAttribute("data-rutracker-i18n-orig");
+                if (raw) {
+                  const decoded = decodeURIComponent(raw);
+                  try {
+                    const parsed = JSON.parse(decoded);
+                    info = { type: "element", attrs: parsed };
+                  } catch (e) {
+                    info = { type: "text", original: decoded };
+                  }
+                }
+              } catch (e) {
+              }
+              if (!info) return;
+            }
+            if (typeof predicate === "function" && !predicate(el, info)) return;
+            if (info.type === "text") {
+              const txt = document.createTextNode(info.original);
+              el.parentNode && el.parentNode.replaceChild(txt, el);
+            } else if (info.type === "element") {
+              if (info.attrs) {
+                if (typeof info.attrs.placeholder !== "undefined") try {
+                  el.placeholder = info.attrs.placeholder;
+                } catch (e) {
+                }
+                if (typeof info.attrs.value !== "undefined") try {
+                  el.value = info.attrs.value;
+                } catch (e) {
+                }
+                if (typeof info.attrs.title !== "undefined") try {
+                  el.title = info.attrs.title;
+                } catch (e) {
+                }
+              }
+            }
+            originalIdMap.delete(id);
+            originalNodeMap.delete(el);
+            try {
+              el.removeAttribute && el.removeAttribute("data-rutracker-i18n-id");
+            } catch (e) {
+            }
+          } catch (e) {
+          }
+        });
+      }
+      for (const [node, info] of Array.from(originalNodeMap.entries())) {
+        try {
+          if (typeof predicate === "function" && !predicate(node, info)) continue;
+          if (node.nodeType === Node.TEXT_NODE) {
+            if (info && typeof info.nodeValue !== "undefined" && info.nodeValue !== null) node.nodeValue = info.nodeValue;
+          } else {
+            if (info && info.attrs) {
+              if (typeof info.attrs.placeholder !== "undefined") try {
+                node.placeholder = info.attrs.placeholder;
+              } catch (e) {
+              }
+              if (typeof info.attrs.value !== "undefined") try {
+                node.value = info.attrs.value;
+              } catch (e) {
+              }
+              if (typeof info.attrs.title !== "undefined") try {
+                node.title = info.attrs.title;
+              } catch (e) {
+              }
+            }
+          }
+        } catch (e) {
+        }
+        originalNodeMap.delete(node);
+      }
+    } catch (e) {
+      console.warn("restoreOriginals outer error", e);
     }
   }
 
@@ -831,6 +1007,10 @@
     panel.style.cssText = `position: fixed; top: 160px; right: 20px; width: 350px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 15px; z-index: 9998; display: none; font-family: Arial, sans-serif; max-height: 80vh; overflow-y: auto;`;
     panel.innerHTML = `
             <h3 style="margin-top: 0; color: #4a76a8; border-bottom: 1px solid #eee; padding-bottom: 10px;">添加自定义翻译</h3>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                <label style="font-size:13px; color:#333;">翻译:</label>
+                <button id="toggle-translation-btn" style="background:#17a2b8; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">加载中...</button>
+            </div>
             <div style="margin-bottom: 10px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">原文:</label>
                 <input type="text" id="custom-translation-original" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -875,6 +1055,7 @@
       if (!isVisible) {
         updateCustomTranslationsList();
         resetEditState();
+        syncToggleLabel();
       }
     });
     document.addEventListener("click", (e) => {
@@ -885,6 +1066,36 @@
     });
     panel.addEventListener("click", (e) => {
       e.stopPropagation();
+    });
+    const toggleBtn = null;
+    function syncToggleLabel() {
+      try {
+        const enabled = getTranslationEnabled();
+        const btn = document.getElementById("toggle-translation-btn");
+        if (!btn) return;
+        btn.textContent = enabled ? "关闭翻译" : "显示翻译";
+        btn.style.background = enabled ? "#dc3545" : "#17a2b8";
+      } catch (e) {
+      }
+    }
+    document.addEventListener("DOMContentLoaded", syncToggleLabel);
+    setTimeout(syncToggleLabel, 0);
+    document.getElementById("toggle-translation-btn").addEventListener("click", () => {
+      const enabled = getTranslationEnabled();
+      const next = !enabled;
+      if (!saveTranslationEnabled(next)) {
+        showFeedback("切换失败，请检查控制台。", "error");
+        return;
+      }
+      if (next) {
+        options.refreshTranslations();
+        replaceText(document.body, getCombinedTranslations());
+        showFeedback("已启用翻译。", "success");
+      } else {
+        restoreOriginals();
+        showFeedback("已恢复为原文显示。", "success");
+      }
+      syncToggleLabel();
     });
     document.getElementById("add-custom-translation").addEventListener("click", () => {
       const original = document.getElementById("custom-translation-original").value.trim();
@@ -1255,10 +1466,10 @@
       getCustomTranslations: () => rutrackerCurrentTranslations,
       refreshTranslations: () => {
         rutrackerCurrentTranslations = getCombinedTranslations();
-        replaceText(document.body, rutrackerCurrentTranslations);
+        if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
       }
     });
-    replaceText(document.body, rutrackerCurrentTranslations);
+    if (getTranslationEnabled()) replaceText(document.body, rutrackerCurrentTranslations);
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {

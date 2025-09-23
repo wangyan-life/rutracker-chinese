@@ -1,8 +1,8 @@
 // ui.js
 // 负责创建翻译面板 UI 与事件逻辑（包括导入预览/进度）
 
-import { getCustomTranslations, saveCustomTranslations, getCombinedTranslations } from './storage.js';
-import { replaceText, escapeRegExp } from './replace.js';
+import { getCustomTranslations, saveCustomTranslations, getCombinedTranslations, getTranslationEnabled, saveTranslationEnabled } from './storage.js';
+import { replaceText, escapeRegExp, restoreOriginals } from './replace.js';
 
 export function init(options) {
   // options: { getCustomTranslations, refreshTranslations }
@@ -18,6 +18,10 @@ export function init(options) {
 
   panel.innerHTML = `
             <h3 style="margin-top: 0; color: #4a76a8; border-bottom: 1px solid #eee; padding-bottom: 10px;">添加自定义翻译</h3>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                <label style="font-size:13px; color:#333;">翻译:</label>
+                <button id="toggle-translation-btn" style="background:#17a2b8; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">加载中...</button>
+            </div>
             <div style="margin-bottom: 10px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">原文:</label>
                 <input type="text" id="custom-translation-original" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -66,6 +70,8 @@ export function init(options) {
     if (!isVisible) {
       updateCustomTranslationsList();
       resetEditState();
+  // sync toggle button label when opening panel
+  syncToggleLabel();
     }
   });
 
@@ -77,6 +83,42 @@ export function init(options) {
   });
 
   panel.addEventListener('click', (e) => { e.stopPropagation(); });
+
+  // Toggle button logic
+  const toggleBtn = null;
+  function syncToggleLabel() {
+    try {
+      const enabled = getTranslationEnabled();
+      const btn = document.getElementById('toggle-translation-btn');
+      if (!btn) return;
+      btn.textContent = enabled ? '关闭翻译' : '显示翻译';
+      btn.style.background = enabled ? '#dc3545' : '#17a2b8';
+    } catch (e) { /* ignore */ }
+  }
+
+  document.addEventListener('DOMContentLoaded', syncToggleLabel);
+  // Also call now in case DOMContentLoaded already fired
+  setTimeout(syncToggleLabel, 0);
+
+  document.getElementById('toggle-translation-btn').addEventListener('click', () => {
+    const enabled = getTranslationEnabled();
+    const next = !enabled;
+    if (!saveTranslationEnabled(next)) {
+      showFeedback('切换失败，请检查控制台。', 'error');
+      return;
+    }
+    if (next) {
+      // enable: apply translations immediately
+      options.refreshTranslations();
+      replaceText(document.body, getCombinedTranslations());
+      showFeedback('已启用翻译。', 'success');
+    } else {
+      // disable: restore originals
+      restoreOriginals();
+      showFeedback('已恢复为原文显示。', 'success');
+    }
+    syncToggleLabel();
+  });
 
   document.getElementById('add-custom-translation').addEventListener('click', () => {
     const original = document.getElementById('custom-translation-original').value.trim();
