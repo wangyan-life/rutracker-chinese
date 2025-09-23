@@ -85,7 +85,7 @@ jobs:
 
       - name: Upload production release asset (dist)
         if: steps.version_check.outputs.changed == 'true' && steps.prod_release.outputs.upload_url
-        uses: actions/upload-release-asset@v2
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.prod_release.outputs.upload_url }}
           asset_path: ./dist/rutracker-chinese.user.js
@@ -96,7 +96,7 @@ jobs:
 
       - name: Upload production release zip
         if: steps.version_check.outputs.changed == 'true' && steps.prod_release.outputs.upload_url
-        uses: actions/upload-release-asset@v2
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.prod_release.outputs.upload_url }}
           asset_path: ./dist/rutracker-chinese.zip
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload prerelease asset (dist)
         if: steps.prerelease.outputs.id
-        uses: actions/upload-release-asset@v2
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.prerelease.outputs.upload_url }}
           asset_path: ./dist/rutracker-chinese.user.js
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload prerelease zip
         if: steps.prerelease.outputs.id
-        uses: actions/upload-release-asset@v2
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.prerelease.outputs.upload_url }}
           asset_path: ./dist/rutracker-chinese.zip
