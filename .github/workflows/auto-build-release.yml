@@ -31,6 +31,21 @@ jobs:
         run: |
           export PUPPETEER_SKIP_DOWNLOAD=1
           npm run build
+      - name: Commit built dist userscript (if changed)
+        run: |
+          # configure git author
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # ensure we have the latest refs
+          git fetch origin main --depth=1 || true
+          # check for changes to the built userscript
+          if git status --porcelain | grep -q "dist/rutracker-chinese.user.js"; then
+            git add dist/rutracker-chinese.user.js
+            git commit -m "chore(build): update dist/rutracker-chinese.user.js [skip ci]" || true
+            git push origin HEAD:main || true
+          else
+            echo "No changes to dist/rutracker-chinese.user.js"
+          fi
       - name: Create/Update prerelease
         id: prerelease
         uses: softprops/action-gh-release@v2
