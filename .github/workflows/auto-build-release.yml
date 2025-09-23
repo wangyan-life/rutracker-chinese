@@ -52,18 +52,29 @@ jobs:
             cd -
           fi
 
-      - name: Get package.json version
-        id: get_package_version
+      - name: Get current and main package.json versions
+        id: get_package_versions
         run: |
-          node -e "console.log(JSON.stringify({version: require('./package.json').version}))" > pkg.json
-          echo "pkg=$(cat pkg.json)" >> $GITHUB_OUTPUT
-          echo "::set-output name=pkg::$(cat pkg.json)"
+          # read current version
+          node -e "console.log(require('./package.json').version)" > ./.cur_version
+          echo "cur_version=$(cat ./.cur_version)" >> $GITHUB_OUTPUT
+          # fetch main and read its package.json version
+          git fetch origin main --depth=1 || true
+          git show origin/main:package.json > ./.main_package.json || true
+          if [ -f ./.main_package.json ]; then
+            node -e "console.log(require('././.main_package.json').version)" > ./.main_version || true
+            echo "main_version=$(cat ./.main_version)" >> $GITHUB_OUTPUT
+          else
+            echo "main_version=" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Check if package.json changed vs main
+      - name: Decide if package.json version bumped
         id: version_check
         run: |
-          git fetch origin main --depth=1 || true
-          if git diff --name-only origin/main...HEAD | grep -q "^package.json$"; then
+          cur=$(cat ./.cur_version || echo)
+          main=$(cat ./.main_version || echo)
+          echo "cur=$cur main=$main"
+          if [ -z "$main" ] || [ "$cur" != "$main" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
