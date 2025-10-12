@@ -3,7 +3,7 @@
 // @namespace    https://github.com/wangyan-life
 // @match        https://rutracker.org/*
 // @match        https://rutracker.me/*
-// @version      2.1.0
+// @version      2.1.1
 // @description  Rutracker 汉化插件，支持自定义翻译词条，可编辑和删除
 // @author       wangyan-life
 // @grant        GM_setValue
